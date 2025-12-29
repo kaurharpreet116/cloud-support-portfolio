@@ -96,3 +96,83 @@ aws ec2 describe-security-groups \
   --output json
 
 ```
+## Findings:
+- SSH (TCP/22) was allowed, but the source CIDR did not match the current admin/corporate egress IP
+- The configured CIDR corresponded to an outdated IP range
+
+## Conclusion:
+The Security Group inbound rule was misconfigured, preventing SSH access from the valid source IP.
+
+### Step 4 — Validate Network ACL rules (defense-in-depth check)
+
+**Goal:**
+Ensure Network ACLs were not blocking inbound or outbound SSH traffic.
+
+**AWS CLI**
+```bash
+aws ec2 describe-network-acls \
+  --filters "Name=association.subnet-id,Values=subnet-xxxxxxxx" \
+  --query "NetworkAcls[].Entries[]" \
+  --output table
+```
+
+## Findings:
+- No explicit deny rules for TCP/22
+- Ephemeral outbound ports were permitted
+
+## Conclusion:
+Network ACLs were not contributing to the SSH connectivity issue.
+
+### Root Cause Analysis (RCA)
+
+## Root Cause:
+The EC2 instance Security Group allowed SSH access only from an outdated source CIDR. A recent network change modified the admin egress IP range, but the Security Group was not updated accordingly.
+
+## Resolution
+
+### Action Taken:
+- Updated the Security Group inbound rule to allow SSH (TCP/22) from the current approved admin CIDR
+- Removed obsolete IP ranges to maintain least-privilege access
+
+## AWS CLI (example)
+```bash
+aws ec2 authorize-security-group-ingress \
+  --group-id sg-xxxxxxxx \
+  --ip-permissions '[
+    {
+      "IpProtocol": "tcp",
+      "FromPort": 22,
+      "ToPort": 22,
+      "IpRanges": [
+        {
+          "CidrIp": "X.X.X.X/32",
+          "Description": "Approved admin SSH access"
+        }
+      ]
+    }
+  ]'
+
+```
+
+## Validation:
+```bash
+ssh -i <key>.pem ec2-user@<public-ip>
+
+```
+SSH access was successfully restored.
+
+## Preventive Actions
+
+- Replace individual IP-based rules with approved corporate/VPN CIDR blocks
+- Implement change review checks for Security Group modifications
+- Enable configuration monitoring to detect Security Group drift
+- Document a time-bound “break-glass” SSH access procedure
+
+# Evidence
+
+Supporting CLI outputs, configuration screenshots, and before/after comparisons are stored in the evidence/ directory.
+
+## Lessons Learned
+- Always validate the source CIDR when troubleshooting connectivity issues
+- Security Group rules are a high-signal checkpoint for SSH timeouts
+- Network changes should include a validation step for operational access paths
