@@ -40,3 +40,12 @@
 aws ec2 describe-instances --instance-ids i-xxxxxxxxxxxxxxxxx \
   --query "Reservations[].Instances[].{State:State.Name,PublicIp:PublicIpAddress,SubnetId:SubnetId,VpcId:VpcId}" \
   --output table
+
+**Findings:**
+- Instance state was `running`
+- System and instance status checks passed
+- Public IP address was assigned
+- Instance was confirmed in the expected VPC and subnet
+
+**Conclusion:**
+The issue was not caused by instance state or AWS health checks. Investigation proceeded to the network access path.
