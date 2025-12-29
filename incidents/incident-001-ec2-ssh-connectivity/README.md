@@ -49,3 +49,24 @@ aws ec2 describe-instances --instance-ids i-xxxxxxxxxxxxxxxxx \
 
 **Conclusion:**
 The issue was not caused by instance state or AWS health checks. Investigation proceeded to the network access path.
+
+### Step 2 — Verify subnet routing and Internet Gateway attachment
+
+**Goal:** Ensure the instance subnet has a valid route to the Internet Gateway.
+
+**AWS CLI**
+```bash
+aws ec2 describe-route-tables \
+  --filters "Name=association.subnet-id,Values=subnet-xxxxxxxx" \
+  --query "RouteTables[].Routes[]" \
+  --output table
+Findings:
+
+Subnet route table contained a default route 0.0.0.0/0
+
+Default route pointed to an attached Internet Gateway (igw-xxxxxxx)
+
+No blackhole or conflicting routes were present
+
+Conclusion:
+Routing to the internet was correctly configured. The connectivity issue was not caused by missing or incorrect route table entries.
